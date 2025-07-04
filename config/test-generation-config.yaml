@@ -1,0 +1,47 @@
+# C++ Unit Test Generation Configuration
+
+project_settings:
+  name: "C++ Unit Test Generator"
+  version: "1.0.0"
+  target_framework: "Google Test"
+  cpp_standard: "C++17"
+  build_system: "CMake"
+
+llm_settings:
+  model: "gpt-4"
+  temperature: 0.3
+  max_tokens: 2000
+  timeout: 30
+
+generation_phases:
+  initial_generation:
+    description: "Generate initial unit tests from C++ source code"
+    yaml_config: "initial-test-generation.yaml"
+    output_directory: "tests/generated"
+    
+  refinement:
+    description: "Refine tests by removing duplicates and adding libraries"
+    yaml_config: "test-refinement.yaml"
+    iterations: 2
+    
+  build_debug:
+    description: "Handle build issues and fix compilation errors"
+    yaml_config: "build-fix.yaml"
+    max_attempts: 3
+    
+  coverage_optimization:
+    description: "Improve test coverage and optimize test suite"
+    yaml_config: "coverage-improvement.yaml"
+    target_coverage: 85
+
+build_settings:
+  compiler: "g++"
+  flags: ["-std=c++17", "-Wall", "-Wextra", "-g", "-O0"]
+  test_flags: ["-lgtest", "-lgtest_main", "-pthread"]
+  coverage_flags: ["--coverage", "-fprofile-arcs", "-ftest-coverage"]
+
+output_settings:
+  test_directory: "tests"
+  report_directory: "reports"
+  formats: ["html", "xml", "json"]
+  include_source_mapping: true

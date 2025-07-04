@@ -1,0 +1,60 @@
+# Initial Test Generation Instructions
+
+generation_rules:
+  framework: "Google Test (gtest)"
+  language: "C++17"
+  
+  requirements:
+    - Generate comprehensive unit tests for all public methods
+    - Include proper test fixtures for complex classes
+    - Use descriptive test names following naming conventions
+    - Include necessary headers and dependencies
+    - Add setup and teardown methods where needed
+    - Generate both positive and negative test cases
+    
+  test_structure:
+    - Use TEST_F for fixture-based tests
+    - Use TEST for simple function tests
+    - Include parameterized tests for data-driven testing
+    - Add death tests for error conditions
+    - Use mocks for external dependencies
+    
+  naming_conventions:
+    test_class: "{ClassName}Test"
+    test_method: "{MethodName}_{Scenario}_{ExpectedResult}"
+    fixture: "{ClassName}TestFixture"
+    
+  coverage_targets:
+    - All public methods and functions
+    - Constructor and destructor behavior
+    - Edge cases and boundary conditions
+    - Error handling and exception scenarios
+    - State transitions and invariants
+    
+  code_quality:
+    - Include descriptive comments
+    - Use meaningful variable names
+    - Follow consistent formatting
+    - Add assertions with custom messages
+    - Group related tests logically
+
+output_format:
+  file_extension: ".cpp"
+  header_template: |
+    #include <gtest/gtest.h>
+    #include <gmock/gmock.h>
+    // Include source headers
+  
+  test_template: |
+    class {ClassName}Test : public ::testing::Test {
+    protected:
+        void SetUp() override {
+            // Setup test environment
+        }
+        
+        void TearDown() override {
+            // Cleanup resources
+        }
+        
+        // Test helper methods and member variables
+    };

@@ -1,0 +1,81 @@
+# Test Coverage Improvement Instructions
+
+coverage_improvement_rules:
+  analysis_phase:
+    coverage_metrics:
+      - Line coverage percentage
+      - Function coverage percentage  
+      - Branch coverage percentage
+      - Condition coverage analysis
+      
+    gap_identification:
+      - Identify uncovered code paths
+      - Find missing edge case scenarios
+      - Locate untested error conditions
+      - Discover unexercised branches
+      - Find uncovered exception handlers
+      
+  enhancement_strategies:
+    missing_tests:
+      - Add tests for uncovered functions
+      - Create tests for error conditions
+      - Include boundary value testing
+      - Add negative test scenarios
+      - Test exception throwing and handling
+      
+    edge_cases:
+      - Null pointer handling
+      - Empty container scenarios
+      - Maximum/minimum value testing
+      - Resource exhaustion scenarios
+      - Concurrent access patterns
+      
+    integration_scenarios:
+      - Component interaction testing
+      - End-to-end workflow validation
+      - Cross-module dependency testing
+      - State transition verification
+      - Data flow validation
+      
+  optimization_rules:
+    test_efficiency:
+      - Remove redundant test cases
+      - Combine similar test scenarios
+      - Optimize test execution time
+      - Reduce test setup overhead
+      - Minimize resource usage
+      
+    maintainability:
+      - Improve test readability
+      - Add comprehensive documentation
+      - Create reusable test utilities
+      - Establish clear test categories
+      - Implement proper test organization
+      
+  quality_targets:
+    minimum_coverage:
+      line_coverage: 80
+      function_coverage: 85
+      branch_coverage: 75
+      
+    quality_metrics:
+      - Zero compilation warnings
+      - All tests pass consistently
+      - Fast test execution (< 30s total)
+      - Clear test failure messages
+      - Proper test isolation
+      
+  reporting:
+    generate_reports:
+      - HTML coverage report
+      - XML coverage data
+      - JSON summary statistics
+      - Detailed gap analysis
+      - Improvement recommendations
+      
+    metrics_tracking:
+      - Coverage trend analysis
+      - Test execution performance
+      - Failure rate statistics
+      - Code quality indicators
+      - Maintenance effort metrics
