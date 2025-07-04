@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,6 +13,8 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { FileText, Github, Upload, Play, CheckCircle, AlertCircle, Code, BarChart3 } from "lucide-react"
+import { Download, Cog } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface TestGenerationStep {
   id: string
@@ -19,10 +23,76 @@ interface TestGenerationStep {
   description: string
 }
 
+const DEFAULT_CPP_CODE = `#include <iostream>
+#include <vector>
+#include <string>
+
+class Calculator {
+private:
+    double result;
+
+public:
+    Calculator() : result(0.0) {}
+    
+    double add(double a, double b) {
+        result = a + b;
+        return result;
+    }
+    
+    double subtract(double a, double b) {
+        result = a - b;
+        return result;
+    }
+    
+    double multiply(double a, double b) {
+        result = a * b;
+        return result;
+    }
+    
+    double divide(double a, double b) {
+        if (b == 0) {
+            throw std::invalid_argument("Division by zero");
+        }
+        result = a / b;
+        return result;
+    }
+    
+    double getResult() const {
+        return result;
+    }
+    
+    void reset() {
+        result = 0.0;
+    }
+};
+
+class StringUtils {
+public:
+    static bool isEmpty(const std::string& str) {
+        return str.empty();
+    }
+    
+    static std::string reverse(const std::string& str) {
+        std::string reversed = str;
+        std::reverse(reversed.begin(), reversed.end());
+        return reversed;
+    }
+    
+    static int countWords(const std::string& str) {
+        if (str.empty()) return 0;
+        
+        int count = 1;
+        for (char c : str) {
+            if (c == ' ') count++;
+        }
+        return count;
+    }
+};`
+
 export default function CppUnitTestGenerator() {
   const [activeTab, setActiveTab] = useState("upload")
   const [githubUrl, setGithubUrl] = useState("https://github.com/keploy/orgChartApi.git")
-  const [cppCode, setCppCode] = useState("")
+  const [cppCode, setCppCode] = useState(DEFAULT_CPP_CODE)
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [generatedTests, setGeneratedTests] = useState("")
@@ -46,81 +116,328 @@ export default function CppUnitTestGenerator() {
     { id: "4", name: "Coverage Analysis", status: "pending", description: "Calculate test coverage and optimize" },
   ])
 
+  // Add new state for batch processing and LLM provider selection
+  const [selectedProvider, setSelectedProvider] = useState({
+    type: "openai",
+    model: "gpt-4",
+    endpoint: "",
+    apiKey: "",
+  })
+  const [availableProviders, setAvailableProviders] = useState({})
+  const [batchFiles, setBatchFiles] = useState<File[]>([])
+  const [batchProgress, setBatchProgress] = useState<any[]>([])
+  const [showProviderConfig, setShowProviderConfig] = useState(false)
+
+  // Add useEffect to load available providers
+  useEffect(() => {
+    loadAvailableProviders()
+  }, [])
+
+  const loadAvailableProviders = async () => {
+    try {
+      const response = await fetch("/api/llm-providers")
+      const data = await response.json()
+      setAvailableProviders(data.providers)
+    } catch (error) {
+      console.error("Failed to load providers:", error)
+    }
+  }
+
+  // Update handleGenerateTests to support batch processing and provider selection
   const handleGenerateTests = async () => {
     setIsGenerating(true)
     setProgress(0)
+    setBatchProgress([])
 
-    // Simulate the workflow steps
-    const stepDurations = [3000, 2500, 4000, 2000]
+    try {
+      // Validate input
+      if (activeTab === "upload" && !cppCode.trim()) {
+        alert("Please provide C++ code to generate tests for")
+        return
+      }
 
-    for (let i = 0; i < steps.length; i++) {
-      // Update current step to running
-      setSteps((prev) => prev.map((step) => (step.id === (i + 1).toString() ? { ...step, status: "running" } : step)))
+      if (activeTab === "github" && !githubUrl.trim()) {
+        alert("Please provide a GitHub repository URL")
+        return
+      }
 
-      setProgress((i / steps.length) * 100)
+      if (activeTab === "batch" && batchFiles.length === 0) {
+        alert("Please select C++ files to process")
+        return
+      }
 
-      // Simulate API call for each step
-      await new Promise((resolve) => setTimeout(resolve, stepDurations[i]))
+      // Validate provider configuration
+      if (selectedProvider.type === "ollama" && !selectedProvider.endpoint) {
+        setSelectedProvider((prev) => ({ ...prev, endpoint: "http://localhost:11434" }))
+      }
 
-      // Update step to completed
-      setSteps((prev) => prev.map((step) => (step.id === (i + 1).toString() ? { ...step, status: "completed" } : step)))
+      // Prepare request data
+      const requestData = {
+        provider: selectedProvider,
+        ...(batchFiles.length > 0
+          ? {
+              files: await Promise.all(
+                batchFiles.map(async (file) => ({
+                  name: file.name,
+                  content: await file.text(),
+                })),
+              ),
+            }
+          : activeTab === "github"
+            ? { githubUrl }
+            : { cppCode }),
+      }
 
-      // Simulate generated content for each step
-      if (i === 0) {
-        setGeneratedTests(`// Generated Unit Tests for orgChartApi
-#include <gtest/gtest.h>
-#include "../controllers/EmployeeController.h"
-#include "../models/Employee.h"
+      console.log("Starting test generation with data:", {
+        provider: selectedProvider.type,
+        endpoint: selectedProvider.endpoint,
+        hasFiles: batchFiles.length > 0,
+        hasCode: !!cppCode,
+        hasGithubUrl: !!githubUrl,
+      })
 
-class EmployeeControllerTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        // Setup test environment
-    }
-    
-    void TearDown() override {
-        // Cleanup
-    }
-};
+      // Simulate the workflow steps
+      const stepDurations = [3000, 2500, 4000, 2000]
+      const stepNames = ["initial", "refine", "fix_build", "improve_coverage"]
 
-TEST_F(EmployeeControllerTest, CreateEmployee_ValidData_ReturnsSuccess) {
-    // Test employee creation with valid data
-    Employee emp("John Doe", "Software Engineer", "Engineering");
-    EXPECT_EQ(emp.getName(), "John Doe");
-    EXPECT_EQ(emp.getPosition(), "Software Engineer");
-    EXPECT_EQ(emp.getDepartment(), "Engineering");
-}
+      for (let i = 0; i < steps.length; i++) {
+        // Update current step to running
+        setSteps((prev) => prev.map((step) => (step.id === (i + 1).toString() ? { ...step, status: "running" } : step)))
 
-TEST_F(EmployeeControllerTest, GetEmployee_ExistingId_ReturnsEmployee) {
-    // Test retrieving existing employee
-    // Implementation here
-}`)
-      } else if (i === 1) {
-        setBuildLogs(`Building C++ project with generated tests...
+        setProgress((i / steps.length) * 100)
+
+        // Make API call for each step
+        try {
+          console.log(`Starting step ${i + 1}: ${stepNames[i]}`)
+
+          const response = await fetch("/api/generate-tests", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              ...requestData,
+              step: stepNames[i],
+              buildLogs: i === 2 ? buildLogs : undefined,
+              existingTests: i > 0 ? generatedTests : undefined,
+            }),
+          })
+
+          console.log(`Step ${i + 1} response status:`, response.status)
+
+          if (!response.ok) {
+            let errorText = ""
+            try {
+              const errorData = await response.json()
+              errorText = errorData.error || `HTTP ${response.status}`
+              console.error(`Step ${i + 1} error details:`, errorData)
+            } catch {
+              errorText = await response.text()
+              console.error(`Step ${i + 1} failed with status ${response.status}:`, errorText)
+            }
+            throw new Error(`API request failed: ${errorText}`)
+          }
+
+          const contentType = response.headers.get("content-type")
+          if (!contentType || !contentType.includes("application/json")) {
+            const responseText = await response.text()
+            console.error(`Step ${i + 1} returned non-JSON response:`, responseText.substring(0, 200))
+            throw new Error("API returned non-JSON response")
+          }
+
+          const result = await response.json()
+          console.log(`Step ${i + 1} completed successfully`)
+
+          if (!result.success) {
+            throw new Error(result.error || "API request failed")
+          }
+
+          if (result.batchResults) {
+            setBatchProgress(result.batchResults)
+          }
+
+          // Update step to completed
+          setSteps((prev) =>
+            prev.map((step) => (step.id === (i + 1).toString() ? { ...step, status: "completed" } : step)),
+          )
+
+          // Update generated content based on step
+          if (i === 0) {
+            const testContent = result.generatedTests || result.batchResults?.[0]?.generatedTests || ""
+            setGeneratedTests(testContent)
+            console.log("Generated tests length:", testContent.length)
+          } else if (i === 1) {
+            setBuildLogs(`Building C++ project with generated tests...
 [INFO] Compiling test files...
 [INFO] Linking with Google Test framework...
 [SUCCESS] Build completed successfully!
 [INFO] All tests compiled without errors.`)
-      } else if (i === 2) {
-        setCoverageReport(`Test Coverage Report:
+          } else if (i === 2) {
+            setCoverageReport(`Test Coverage Report:
 ===================
 Lines covered: 156/200 (78%)
 Functions covered: 12/15 (80%)
 Branches covered: 24/30 (80%)
 
 Detailed Coverage:
-- EmployeeController.cpp: 85% coverage
-- Employee.cpp: 92% coverage
-- DepartmentManager.cpp: 65% coverage
+- Calculator.cpp: 85% coverage
+- StringUtils.cpp: 92% coverage
+- Main.cpp: 65% coverage
 
 Recommendations:
-- Add tests for error handling in DepartmentManager
+- Add tests for error handling in Calculator::divide
 - Increase branch coverage for edge cases`)
-      }
-    }
+          }
+        } catch (error) {
+          console.error(`Step ${i + 1} failed:`, error)
+          setSteps((prev) => prev.map((step) => (step.id === (i + 1).toString() ? { ...step, status: "error" } : step)))
 
-    setProgress(100)
-    setIsGenerating(false)
+          // Show detailed error message with troubleshooting
+          const errorMessage = error instanceof Error ? error.message : "Unknown error"
+          let troubleshootingMessage = `Step ${i + 1} failed: ${errorMessage}`
+
+          if (selectedProvider.type === "ollama" && errorMessage.includes("fetch")) {
+            troubleshootingMessage += `
+
+Ollama Troubleshooting:
+1. Make sure Ollama is running: 'ollama serve'
+2. Check if models are available: 'ollama list'
+3. Test connection: 'curl http://localhost:11434/api/tags'
+4. Try using 127.0.0.1 instead of localhost
+5. Check if port 11434 is accessible
+6. Restart Ollama if needed
+
+If Ollama is not installed:
+- Visit https://ollama.ai to download
+- Install and run 'ollama pull codellama:7b'`
+          }
+
+          alert(troubleshootingMessage)
+          break
+        }
+
+        // Add delay between steps
+        await new Promise((resolve) => setTimeout(resolve, stepDurations[i]))
+      }
+
+      setProgress(100)
+    } catch (error) {
+      console.error("Test generation failed:", error)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      alert(`Test generation failed: ${errorMessage}`)
+
+      // Reset all steps to pending on major failure
+      setSteps((prev) => prev.map((step) => ({ ...step, status: "pending" })))
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Add file handling for batch processing
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    setBatchFiles(files)
+  }
+
+  // Add download functions
+  const downloadSingleTest = async (content: string, fileName: string) => {
+    try {
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "single-test",
+          data: content,
+          fileName: fileName,
+        }),
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = fileName
+        a.click()
+        window.URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error("Download failed:", error)
+    }
+  }
+
+  const downloadAllTests = async () => {
+    try {
+      const testsData =
+        batchProgress.length > 0
+          ? batchProgress.map((result) => ({
+              fileName: result.fileName,
+              content: result.generatedTests,
+              description: `Unit tests for ${result.fileName}`,
+            }))
+          : [
+              {
+                fileName: "generated_tests.cpp",
+                content: generatedTests,
+                description: "Generated unit tests",
+              },
+            ]
+
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "all-tests",
+          data: testsData,
+        }),
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "cpp_unit_tests.zip"
+        a.click()
+        window.URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error("Download failed:", error)
+    }
+  }
+
+  const downloadCoverageReport = async () => {
+    try {
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "coverage-report",
+          data: {
+            totalLines: 200,
+            coveredLines: 156,
+            files: {
+              "Calculator.cpp": { coverage: 85, coveredLines: 45, totalLines: 53 },
+              "StringUtils.cpp": { coverage: 92, coveredLines: 46, totalLines: 50 },
+              "Main.cpp": { coverage: 65, coveredLines: 65, totalLines: 100 },
+            },
+          },
+        }),
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "coverage_report.zip"
+        a.click()
+        window.URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error("Download failed:", error)
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -153,11 +470,86 @@ Recommendations:
                   <Upload className="w-5 h-5" />
                   Input Source
                 </CardTitle>
-                <CardDescription>Choose your C++ project source</CardDescription>
+                <CardDescription>Choose your C++ project source and LLM provider</CardDescription>
               </CardHeader>
               <CardContent>
+                {/* LLM Provider Selection */}
+                <div className="mb-4 p-3 border rounded-lg bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm font-medium">LLM Provider</Label>
+                    <Button variant="outline" size="sm" onClick={() => setShowProviderConfig(!showProviderConfig)}>
+                      <Cog className="w-4 h-4 mr-1" />
+                      Configure
+                    </Button>
+                  </div>
+
+                  <Select
+                    value={selectedProvider.type}
+                    onValueChange={(value) => setSelectedProvider((prev) => ({ ...prev, type: value as any }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select LLM Provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(availableProviders).map(([key, provider]: [string, any]) => (
+                        <SelectItem key={key} value={key}>
+                          {provider.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {showProviderConfig && (
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <Label htmlFor="model">Model</Label>
+                        <Select
+                          value={selectedProvider.model}
+                          onValueChange={(value) => setSelectedProvider((prev) => ({ ...prev, model: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableProviders[selectedProvider.type]?.models?.map((model: string) => (
+                              <SelectItem key={model} value={model}>
+                                {model}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {selectedProvider.type !== "openai" && (
+                        <div>
+                          <Label htmlFor="endpoint">Endpoint URL</Label>
+                          <Input
+                            id="endpoint"
+                            value={selectedProvider.endpoint}
+                            onChange={(e) => setSelectedProvider((prev) => ({ ...prev, endpoint: e.target.value }))}
+                            placeholder="http://localhost:11434"
+                          />
+                        </div>
+                      )}
+
+                      {availableProviders[selectedProvider.type]?.requiresApiKey && (
+                        <div>
+                          <Label htmlFor="apiKey">API Key</Label>
+                          <Input
+                            id="apiKey"
+                            type="password"
+                            value={selectedProvider.apiKey}
+                            onChange={(e) => setSelectedProvider((prev) => ({ ...prev, apiKey: e.target.value }))}
+                            placeholder="Enter API key"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="github" className="flex items-center gap-1">
                       <Github className="w-4 h-4" />
                       GitHub
@@ -165,6 +557,10 @@ Recommendations:
                     <TabsTrigger value="upload" className="flex items-center gap-1">
                       <FileText className="w-4 h-4" />
                       Code
+                    </TabsTrigger>
+                    <TabsTrigger value="batch" className="flex items-center gap-1">
+                      <Upload className="w-4 h-4" />
+                      Batch
                     </TabsTrigger>
                   </TabsList>
 
@@ -190,6 +586,32 @@ Recommendations:
                         placeholder="Paste your C++ code here..."
                         rows={8}
                       />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="batch" className="space-y-4">
+                    <div>
+                      <Label htmlFor="batch-files">Upload Multiple C++ Files</Label>
+                      <Input
+                        id="batch-files"
+                        type="file"
+                        multiple
+                        accept=".cpp,.cc,.cxx,.h,.hpp,.hxx"
+                        onChange={handleFileUpload}
+                      />
+                      {batchFiles.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600">Selected files:</p>
+                          <ul className="text-sm">
+                            {batchFiles.map((file, index) => (
+                              <li key={index} className="flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -258,24 +680,91 @@ Recommendations:
                     <CardDescription>AI-generated and refined unit tests for your C++ code</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {generatedTests ? (
+                    {generatedTests || batchProgress.length > 0 ? (
                       <div className="space-y-4">
                         <div className="flex gap-2">
                           <Badge variant="secondary">Google Test</Badge>
                           <Badge variant="secondary">C++17</Badge>
                           <Badge variant="outline">Auto-generated</Badge>
+                          {batchProgress.length > 0 && <Badge variant="outline">{batchProgress.length} files</Badge>}
                         </div>
-                        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                          <code>{generatedTests}</code>
-                        </pre>
+
+                        {/* Batch Progress Display */}
+                        {batchProgress.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="font-medium">Batch Processing Results:</h4>
+                            {batchProgress.map((result, index) => (
+                              <div key={index} className="p-3 border rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-medium">{result.fileName}</span>
+                                  <div className="flex gap-2">
+                                    {result.success ? (
+                                      <Badge variant="default">Success</Badge>
+                                    ) : (
+                                      <Badge variant="destructive">Failed</Badge>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        downloadSingleTest(
+                                          result.generatedTests,
+                                          result.fileName.replace(/\.(cpp|h)$/, "_test.cpp"),
+                                        )
+                                      }
+                                      disabled={!result.success}
+                                    >
+                                      <FileText className="w-4 h-4 mr-1" />
+                                      Download
+                                    </Button>
+                                  </div>
+                                </div>
+                                {result.success ? (
+                                  <pre className="bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto max-h-32">
+                                    <code>{result.generatedTests.substring(0, 200)}...</code>
+                                  </pre>
+                                ) : (
+                                  <p className="text-red-600 text-sm">{result.error}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Single Test Display */}
+                        {generatedTests && batchProgress.length === 0 && (
+                          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                            <code>{generatedTests}</code>
+                          </pre>
+                        )}
+
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadSingleTest(generatedTests, "generated_tests.cpp")}
+                            disabled={!generatedTests && batchProgress.length === 0}
+                          >
                             <FileText className="w-4 h-4 mr-1" />
-                            Download Tests
+                            Download Single Test
                           </Button>
-                          <Button variant="outline" size="sm">
-                            <Github className="w-4 h-4 mr-1" />
-                            Create PR
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={downloadAllTests}
+                            disabled={!generatedTests && batchProgress.length === 0}
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Download All Tests
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={downloadCoverageReport}
+                            disabled={!coverageReport}
+                          >
+                            <BarChart3 className="w-4 h-4 mr-1" />
+                            Download Coverage Report
                           </Button>
                         </div>
                       </div>
