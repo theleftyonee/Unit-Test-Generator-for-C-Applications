@@ -1,3 +1,6 @@
+
+![Screenshot 2025-07-07 004750](https://github.com/user-attachments/assets/b01770ce-6c67-4a96-9706-ef339f37d774)
+
 # C++ Unit Test Generator
 
 An AI-powered tool for automatically generating, refining, and optimizing unit tests for C++ applications using Large Language Models (LLMs). This tool follows an iterative workflow to ensure high-quality, comprehensive test coverage.
@@ -168,6 +171,8 @@ MIT License - see LICENSE file for details
 2. **Coverage Issues**: Make sure gcov and lcov are installed and accessible
 3. **LLM Errors**: Check API key configuration and network connectivity
 4. **Test Compilation**: Verify Google Test is properly installed and linked
+
+### Made with 💖 by Saksham during the Keploy API Fellowship Program
 
 ### Getting Help
 
