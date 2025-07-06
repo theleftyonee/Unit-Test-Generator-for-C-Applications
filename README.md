@@ -172,8 +172,8 @@ MIT License - see LICENSE file for details
 3. **LLM Errors**: Check API key configuration and network connectivity
 4. **Test Compilation**: Verify Google Test is properly installed and linked
 
-### Made with 💖 by Saksham during the Keploy API Fellowship Program
-
 ### Getting Help
 
 - Check the troubleshooting section in the documentation
+
+### Made with 💖 by Saksham during the Keploy API Fellowship Program
