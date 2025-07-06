@@ -1,0 +1,55 @@
+# Build Issue Resolution Instructions
+
+build_fix_rules:
+  error_analysis:
+    - Parse compilation error messages
+    - Identify missing include files
+    - Detect linking issues and missing libraries
+    - Find syntax errors and typos
+    - Locate template instantiation problems
+    - Identify namespace resolution issues
+    
+  common_fixes:
+    missing_includes:
+      - Add standard library headers (<iostream>, <vector>, etc.)
+      - Include project-specific headers
+      - Add Google Test headers (gtest/gtest.h, gmock/gmock.h)
+      - Include system headers for platform-specific code
+      
+    linking_issues:
+      - Add missing library dependencies
+      - Fix library path configurations
+      - Resolve symbol conflicts
+      - Add proper linker flags
+      
+    syntax_fixes:
+      - Fix template syntax errors
+      - Correct namespace declarations
+      - Fix function signature mismatches
+      - Resolve scope resolution issues
+      
+    compatibility_fixes:
+      - Update deprecated API usage
+      - Fix C++ standard compliance issues
+      - Resolve compiler-specific warnings
+      - Handle platform-specific code differences
+      
+  validation_steps:
+    - Ensure tests compile cleanly without warnings
+    - Verify all dependencies are properly linked
+    - Check for proper test registration with Google Test
+    - Validate that all test cases can be discovered
+    - Confirm no runtime linking errors
+    
+  iterative_approach:
+    - Fix one category of errors at a time
+    - Recompile after each fix to verify progress
+    - Document changes made for future reference
+    - Maintain test functionality while fixing build issues
+    - Preserve original test intent and coverage
+    
+error_handling:
+  max_iterations: 3
+  fallback_strategy: "Generate simplified tests if complex fixes fail"
+  logging: "Detailed error analysis and fix attempts"
+  rollback: "Revert to previous working version if needed"

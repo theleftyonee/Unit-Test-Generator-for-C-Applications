@@ -1,0 +1,47 @@
+# Test Refinement Instructions
+
+refinement_rules:
+  duplicate_removal:
+    - Identify and remove identical test cases
+    - Merge similar tests with different input parameters
+    - Eliminate redundant assertions within tests
+    - Remove duplicate setup/teardown code
+    - Consolidate similar test fixtures
+    
+  library_management:
+    - Add missing include statements
+    - Ensure proper Google Test framework setup
+    - Include necessary standard library headers
+    - Add project-specific header includes
+    - Remove unused includes to reduce compilation time
+    - Order includes according to style guide
+    
+  test_improvement:
+    - Enhance test method descriptions and comments
+    - Add more comprehensive edge case testing
+    - Improve assertion messages for better debugging
+    - Add test documentation and purpose explanation
+    - Ensure consistent coding style throughout
+    - Add parameterized tests where beneficial
+    
+  code_organization:
+    - Group related tests into logical test suites
+    - Organize test methods in logical order
+    - Extract common test utilities to helper functions
+    - Separate unit tests from integration tests
+    - Create appropriate test categories and tags
+    
+  quality_checks:
+    - Verify all tests have meaningful names
+    - Ensure proper use of ASSERT vs EXPECT macros
+    - Check for proper resource cleanup
+    - Validate test independence (no test dependencies)
+    - Ensure deterministic test behavior
+    
+validation_criteria:
+  - All tests must compile without warnings
+  - No duplicate test names or functionality
+  - Proper exception handling in tests
+  - Consistent formatting and style
+  - Comprehensive coverage of public interface
+  - Clear separation of concerns in test cases
