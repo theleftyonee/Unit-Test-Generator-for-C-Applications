@@ -1,8 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { generateText } from "ai"
+import { openai } from "@ai-sdk/openai"
 
 // Add LLM provider interface
 interface LLMProvider {
-  type: "ollama" | "llamacpp" | "textgen"
+  type: "openai" | "ollama" | "llamacpp" | "textgen"
   endpoint?: string
   model: string
   apiKey?: string
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
       buildLogs,
       existingTests,
       files,
-      provider = { type: "ollama", model: "llama3.2:1b" },
+      provider = { type: "ollama", model: "codellama:7b-code" },
     } = body
 
     console.log("Extracted request data:", {
@@ -166,165 +168,57 @@ public:
             sourceCode = "// No code provided"
           }
 
-          prompt = `Generate comprehensive unit tests for the following C++ code using Google Test framework.
-
-YAML Instructions:
-${yamlInstructions}
-
-C++ Code:
-${sourceCode}
-
-Generate complete, compilable unit tests with proper includes and test structure.`
+          prompt = `${yamlInstructions}\n\n${sourceCode}`
           break
-
         case "refine":
-          yamlInstructions = `
-refinement_rules:
-  duplicate_removal:
-    - Remove identical test cases
-    - Merge similar tests with different parameters
-    - Eliminate redundant assertions
-  library_management:
-    - Add missing include statements
-    - Ensure proper Google Test setup
-    - Include necessary standard library headers
-  test_improvement:
-    - Enhance test descriptions
-    - Add more edge cases
-    - Improve assertion messages
-    - Add test documentation
-`
-          prompt = `Refine the following unit tests by removing duplicates, adding missing libraries, and improving test quality.
-
-YAML Instructions:
-${yamlInstructions}
-
-Existing Tests:
-${existingTests || "// No existing tests provided"}
-
-Provide the refined, improved version of the tests.`
+          prompt = `Refine the following C++ unit tests to remove duplicates and add relevant libraries.\n\n${cppCode}`
           break
-
-        case "fix_build":
-          yamlInstructions = `
-build_fix_rules:
-  error_analysis:
-    - Identify compilation errors
-    - Fix missing includes
-    - Resolve linking issues
-    - Fix syntax errors
-  common_fixes:
-    - Add missing namespace declarations
-    - Fix template instantiation issues
-    - Resolve dependency conflicts
-    - Update deprecated API usage
-  validation:
-    - Ensure tests compile cleanly
-    - Verify all dependencies are available
-    - Check for proper test registration
-`
-          prompt = `Fix the build issues in the following unit tests based on the build logs.
-
-YAML Instructions:
-${yamlInstructions}
-
-Build Logs:
-${buildLogs || "// No build logs provided"}
-
-Current Tests:
-${existingTests || "// No existing tests provided"}
-
-Provide the corrected version of the tests that will compile successfully.`
+        case "build-fix":
+          prompt = `Fix any build errors in the following C++ code.\n\n${cppCode}\n\nBuild logs:\n${buildLogs}`
           break
-
-        case "improve_coverage":
-          yamlInstructions = `
-coverage_improvement_rules:
-  analysis:
-    - Identify uncovered code paths
-    - Find missing edge cases
-    - Locate untested error conditions
-  enhancement:
-    - Add tests for uncovered lines
-    - Include boundary value tests
-    - Test exception handling
-    - Add integration test scenarios
-  optimization:
-    - Remove redundant tests
-    - Improve test efficiency
-    - Better test organization
-    - Enhanced documentation
-`
-          prompt = `Improve test coverage based on the coverage report and add missing tests.
-
-YAML Instructions:
-${yamlInstructions}
-
-Coverage Data:
-${buildLogs || "// No coverage data provided"}
-
-Current Tests:
-${existingTests || "// No existing tests provided"}
-
-Generate additional tests to improve coverage and optimize existing ones.`
+        case "coverage":
+          prompt = `Improve the following C++ unit tests to maximize code coverage.\n\n${cppCode}\n\nCoverage report:\n${body.coverageReport}`
           break
-
         default:
-          throw new Error(`Unknown step: ${step}`)
+          prompt = cppCode || ""
       }
-
-      console.log("Generated prompt successfully, length:", prompt.length)
     } catch (promptError) {
-      console.error("Error generating prompt:", promptError)
-      return NextResponse.json(
-        {
-          error: `Failed to generate prompt: ${promptError instanceof Error ? promptError.message : "Unknown error"}`,
-          success: false,
-          step,
-        },
-        { status: 500 },
-      )
+      console.error("Prompt generation error:", promptError)
+      return NextResponse.json({ error: "Failed to generate prompt", success: false, step }, { status: 500 })
     }
 
-    // Generate text using selected provider
-    console.log("Starting text generation with provider:", provider.type)
-    let result: { text: string }
-
+    // Call the appropriate LLM provider
+    let result
     try {
-      result = await generateTextWithProvider(prompt, provider)
-      console.log("Text generation completed, length:", result.text.length)
-    } catch (generationError) {
-      console.error("Text generation failed:", generationError)
-      return NextResponse.json(
-        {
-          error: `Text generation failed: ${generationError instanceof Error ? generationError.message : "Unknown error"}`,
-          success: false,
-          step,
-        },
-        { status: 500 },
-      )
+      switch (provider.type) {
+        case "openai":
+          result = await generateTextWithProvider(prompt, provider)
+          break
+        case "ollama":
+          result = await generateWithOllama(prompt, provider)
+          break
+        case "llamacpp":
+          result = await generateWithLlamaCpp(prompt, provider)
+          break
+        case "textgen":
+          result = await generateWithTextGen(prompt, provider)
+          break
+        default:
+          result = generateMockTest(prompt, "Unknown provider type")
+      }
+    } catch (llmError) {
+      console.error("LLM generation error:", llmError)
+      return NextResponse.json({ error: "Failed to generate tests", success: false, step }, { status: 500 })
     }
 
-    console.log("API request completed successfully")
     return NextResponse.json({
-      generatedTests: result.text,
-      step,
       success: true,
+      step,
+      generatedTests: result.text || result,
     })
   } catch (error) {
-    console.error("Unexpected error in API route:", error)
-    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace")
-
-    // Ensure we always return JSON, even on error
-    return NextResponse.json(
-      {
-        error: `Internal server error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        success: false,
-        step: "unknown",
-        details: error instanceof Error ? error.stack : "No additional details",
-      },
-      { status: 500 },
-    )
+    console.error("API route error:", error)
+    return NextResponse.json({ error: "Internal server error", success: false, step: "unknown" }, { status: 500 })
   }
 }
 
@@ -339,7 +233,8 @@ async function processBatchFiles(files: any[], step: string, provider: LLMProvid
 
     try {
       const prompt = generatePromptForFile(file, step)
-      const { text } = await generateTextWithProvider(prompt, provider)
+      const result = await generateTextWithProvider(prompt, provider)
+      const text = result.text || result
 
       results.push({
         fileName: file.name,
@@ -374,10 +269,34 @@ async function generateTextWithProvider(prompt: string, provider: LLMProvider) {
     providerType: provider.type,
     model: provider.model,
     endpoint: provider.endpoint,
+    hasApiKey: !!provider.apiKey,
   })
 
   try {
     switch (provider.type) {
+      case "openai":
+        console.log("Using OpenAI provider")
+        if (!provider.apiKey && !process.env.OPENAI_API_KEY) {
+          console.warn("No OpenAI API key provided, using mock response")
+          return { text: generateMockTest(prompt, "No OpenAI API key provided") }
+        }
+
+        try {
+          return await generateText({
+            model: openai(provider.model),
+            prompt,
+            maxTokens: 2000,
+          })
+        } catch (openaiError) {
+          console.error("OpenAI generation failed:", openaiError)
+          return {
+            text: generateMockTest(
+              prompt,
+              `OpenAI Error: ${openaiError instanceof Error ? openaiError.message : "Unknown error"}`,
+            ),
+          }
+        }
+
       case "ollama":
         console.log("Using Ollama provider")
         return await generateWithOllama(prompt, provider)

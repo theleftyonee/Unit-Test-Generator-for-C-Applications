@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, AlertCircle, Loader2, Info } from "lucide-react"
 
 interface LLMProvider {
-  type: "ollama" | "llamacpp" | "textgen"
+  type: "openai" | "ollama" | "llamacpp" | "textgen"
   model: string
   endpoint?: string
   apiKey?: string
@@ -97,24 +97,22 @@ export function LLMProviderConfig({ selectedProvider, onProviderChange }: LLMPro
     if (type === "ollama") {
       // Recommend optimal models for 8GB RAM first
       const recommendedOrder = [
-        "llama3.2:1b",
+        "codellama:7b-code",
         "qwen2.5-coder:1.5b",
         "gemma2:2b",
-        "codellama:7b-code",
+        "llama3.2:1b",
         "codellama:7b",
         "llama2:7b",
         "llama3.2:3b",
         "phi3:mini",
         "qwen2.5-coder:3b",
       ]
-
       for (const model of recommendedOrder) {
         if (provider?.models?.includes(model)) {
           return model
         }
       }
     }
-
     return provider?.models?.[0] || ""
   }
 
@@ -158,9 +156,16 @@ export function LLMProviderConfig({ selectedProvider, onProviderChange }: LLMPro
                 <SelectItem key={key} value={key}>
                   <div className="flex items-center gap-2">
                     {provider.name}
-                    <Badge variant="secondary" className="text-xs">
-                      Local
-                    </Badge>
+                    {provider.requiresApiKey && (
+                      <Badge variant="outline" className="text-xs">
+                        API Key
+                      </Badge>
+                    )}
+                    {!provider.requiresApiKey && (
+                      <Badge variant="secondary" className="text-xs">
+                        Local
+                      </Badge>
+                    )}
                   </div>
                 </SelectItem>
               ))}
@@ -289,53 +294,24 @@ export function LLMProviderConfig({ selectedProvider, onProviderChange }: LLMPro
             <h4 className="font-medium text-sm mb-2">Provider Information:</h4>
             <ul className="text-xs text-gray-600 space-y-1">
               <li>
-                • <strong>Type:</strong> Local Server
+                • <strong>Type:</strong> {currentProvider.requiresApiKey ? "Cloud API" : "Local Server"}
               </li>
               <li>
                 • <strong>Default Endpoint:</strong> {currentProvider.endpoint}
               </li>
               <li>
-                • <strong>Description:</strong> {currentProvider.description}
+                • <strong>Supported Models:</strong> {currentProvider.models?.join(", ")}
               </li>
               {selectedProvider.type === "ollama" && (
-                <>
-                  <li>
-                    • <strong>Installation:</strong> Download from ollama.ai and run "ollama serve"
-                  </li>
-                  <li>
-                    • <strong>Optimal for 8GB RAM:</strong> llama3.2:1b (1.3GB), qwen2.5-coder:1.5b (1.8GB), gemma2:2b (2.5GB)
-                  </li>
-                  <li>
-                    • <strong>Download models:</strong> ollama pull {selectedProvider.model}
-                  </li>
-                </>
+                <li>
+                  • <strong>Installation:</strong> Download from ollama.ai and run "ollama serve"
+                </li>
               )}
               {selectedProvider.type === "llamacpp" && (
                 <li>
                   • <strong>Installation:</strong> Build llama.cpp and run "./server -m model.gguf"
                 </li>
               )}
-            </ul>
-          </div>
-        )}
-
-        {/* Memory Usage Tips */}
-        {selectedProvider.type === "ollama" && (
-          <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-            <h4 className="font-medium text-sm mb-2 text-yellow-800">Memory Usage Tips:</h4>
-            <ul className="text-xs text-yellow-700 space-y-1">
-              <li>
-                • <strong>Optimal for 8GB RAM:</strong> llama3.2:1b (1.3GB), qwen2.5-coder:1.5b (1.8GB), gemma2:2b (2.5GB)
-              </li>
-              <li>
-                • <strong>Fastest & Most Efficient:</strong> llama3.2:1b (recommended for your setup)
-              </li>
-              <li>
-                • <strong>Code Specialized:</strong> qwen2.5-coder:1.5b (good balance of speed and code quality)
-              </li>
-              <li>
-                • <strong>Larger models:</strong> Use only if you have sufficient free memory
-              </li>
             </ul>
           </div>
         )}

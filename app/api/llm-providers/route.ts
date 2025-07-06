@@ -2,6 +2,13 @@ import { NextResponse } from "next/server"
 
 export async function GET() {
   const providers = {
+    openai: {
+      name: "OpenAI (Cloud)",
+      endpoint: "https://api.openai.com/v1",
+      requiresApiKey: true,
+      models: ["gpt-4", "gpt-3.5-turbo"],
+      description: "OpenAI's GPT models for code generation (API key required)",
+    },
     ollama: {
       name: "Ollama (Local)",
       endpoint: "http://localhost:11434",
@@ -63,6 +70,8 @@ export async function POST(request: Request) {
 
     // Test connection based on provider type
     switch (provider) {
+      case "openai":
+        return await testOpenAIConnection(endpoint || "https://api.openai.com/v1", model)
       case "ollama":
         return await testOllamaConnection(endpoint || "http://localhost:11434", model)
       case "llamacpp":
@@ -78,6 +87,11 @@ export async function POST(request: Request) {
       error: `Connection test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
     })
   }
+}
+
+async function testOpenAIConnection(endpoint: string, model?: string) {
+  // This is a placeholder; in production, you would check API key validity, etc.
+  return NextResponse.json({ connected: true, availableModels: ["gpt-4", "gpt-3.5-turbo"], message: "OpenAI endpoint assumed reachable (API key required)" })
 }
 
 async function testOllamaConnection(endpoint: string, model?: string) {

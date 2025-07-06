@@ -121,8 +121,9 @@ export default function CppUnitTestGenerator() {
   // Add new state for batch processing and LLM provider selection
   const [selectedProvider, setSelectedProvider] = useState({
     type: "ollama",
-    model: "llama3.2:1b", // Optimal for 8GB RAM - fastest and most efficient
+    model: "codellama:7b-code", // Optimal for 8GB RAM - fastest and most efficient
     endpoint: "http://localhost:11434",
+    apiKey: "",
   })
   const [availableProviders, setAvailableProviders] = useState({})
   const [batchFiles, setBatchFiles] = useState<File[]>([])
@@ -139,12 +140,10 @@ export default function CppUnitTestGenerator() {
       const response = await fetch("/api/llm-providers")
       const data = await response.json()
       setAvailableProviders(data.providers)
-
       // Set default to optimal model for 8GB RAM
       if (data.providers.ollama?.models) {
-        const preferredModels = ["llama3.2:1b", "qwen2.5-coder:1.5b", "gemma2:2b", "codellama:7b-code", "codellama:7b", "llama2:7b"]
+        const preferredModels = ["codellama:7b-code", "qwen2.5-coder:1.5b", "gemma2:2b", "llama3.2:1b", "codellama:7b", "llama2:7b"]
         const availableModel = preferredModels.find((model) => data.providers.ollama.models.includes(model))
-
         if (availableModel) {
           setSelectedProvider((prev) => ({ ...prev, model: availableModel }))
         }
@@ -238,7 +237,7 @@ export default function CppUnitTestGenerator() {
 
       // Simulate the workflow steps
       const stepDurations = [3000, 2500, 4000, 2000]
-      const stepNames = ["initial", "refine", "fix_build", "improve_coverage"]
+      const stepNames = ["initial", "refine", "build-fix", "coverage"]
 
       for (let i = 0; i < steps.length; i++) {
         // Update current step to running
@@ -304,7 +303,7 @@ export default function CppUnitTestGenerator() {
 
           // Update generated content based on step
           if (i === 0) {
-            const testContent = result.generatedTests || result.batchResults?.[0]?.generatedTests || ""
+            const testContent = result.generatedTests || result.tests || result.batchResults?.[0]?.generatedTests || ""
             setGeneratedTests(testContent)
             console.log("Generated tests length:", testContent.length)
           } else if (i === 1) {
@@ -372,7 +371,7 @@ Ollama Connection Issue:
 
 If Ollama is not installed:
 - Visit https://ollama.ai to download
-- Install and run 'ollama pull ${selectedProvider.model}'`
+- Install and run 'ollama pull codellama:7b'`
           }
 
           alert(troubleshootingMessage)
@@ -592,15 +591,30 @@ If Ollama is not installed:
                         </Select>
                       </div>
 
-                      <div>
-                        <Label htmlFor="endpoint">Endpoint URL</Label>
-                        <Input
-                          id="endpoint"
-                          value={selectedProvider.endpoint}
-                          onChange={(e) => setSelectedProvider((prev) => ({ ...prev, endpoint: e.target.value }))}
-                          placeholder="http://localhost:11434"
-                        />
-                      </div>
+                      {selectedProvider.type !== "openai" && (
+                        <div>
+                          <Label htmlFor="endpoint">Endpoint URL</Label>
+                          <Input
+                            id="endpoint"
+                            value={selectedProvider.endpoint}
+                            onChange={(e) => setSelectedProvider((prev) => ({ ...prev, endpoint: e.target.value }))}
+                            placeholder="http://localhost:11434"
+                          />
+                        </div>
+                      )}
+
+                      {availableProviders[selectedProvider.type]?.requiresApiKey && (
+                        <div>
+                          <Label htmlFor="apiKey">API Key</Label>
+                          <Input
+                            id="apiKey"
+                            type="password"
+                            value={selectedProvider.apiKey}
+                            onChange={(e) => setSelectedProvider((prev) => ({ ...prev, apiKey: e.target.value }))}
+                            placeholder="Enter API key"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
